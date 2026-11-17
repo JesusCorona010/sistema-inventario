@@ -1,7 +1,8 @@
 name: RELEASE - Sistema de Inventario
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+  workflow_dispatch:
 permissions:
   contents: write
 jobs:
@@ -9,17 +10,45 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Validar sintaxis
+      - name: Verificar sintaxis
         run: python -m compileall -q src tests
-      - name: Ejecutar pruebas
+      - name: Ejecutar siete pruebas
         run: python -m unittest discover -s tests -v
-      - name: Empaquetar código ejecutable
-        run: zip -r "sistema-inventario-${GITHUB_REF_NAME}.zip" src -x '*/__pycache__/*' '*.pyc'
+      - name: Identificar versión inicial
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=v1.0.0
+          if gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - name: Crear etiqueta inmutable
+        if: steps.version.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$VERSION" -m "Primera versión del Sistema de Inventario"
+          git push origin "$VERSION"
+      - name: Crear paquete de distribución
+        if: steps.version.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: zip -r "sistema-inventario-$VERSION.zip" src -x '*/__pycache__/*' '*.pyc'
       - name: Publicar GitHub Release
+        if: steps.version.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          files: sistema-inventario-${{ github.ref_name }}.zip
+          tag_name: ${{ steps.version.outputs.version }}
+          files: sistema-inventario-${{ steps.version.outputs.version }}.zip
           generate_release_notes: true
