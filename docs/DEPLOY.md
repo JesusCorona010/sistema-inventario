@@ -38,3 +38,14 @@ Conservar el ZIP de cada versión. Para regresar a v1.0.0 después de desplegar 
 6. Automatizar hace el procedimiento repetible y auditable.
 7. Versiones incompatibles o herramientas ausentes pueden impedir el inicio.
 8. El rollback permite restaurar una versión estable.
+
+
+## Evidencia verificada: despliegue de v1.0.0
+
+- Release publicado: https://github.com/JesusCorona010/sistema-inventario/releases/tag/v1.0.0
+- Archivo publicado: `sistema-inventario-v1.0.0.zip`.
+- Ejecución de DEPLOY: https://github.com/JesusCorona010/sistema-inventario/actions/runs/44191591747
+- Resultado reportado por GitHub Actions: **success**.
+- Pasos confirmados como exitosos: resolver versión, descargar ZIP publicado, extraerlo, preparar Python 3.12, ejecutar y verificar los programas y guardar evidencia.
+- Entorno usado: runner temporal de GitHub Actions; **no** equivale a instalación persistente en servidor SSH.
+- Para demostrar recuperación de una versión anterior aún se requiere crear y desplegar una segunda versión y luego volver a desplegar la primera; no se declara completado ese ejercicio.
