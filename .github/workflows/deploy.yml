@@ -1,0 +1,42 @@
+name: DEPLOY - Verificar artefacto liberado
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Tag publicado en GitHub Releases (ej. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+permissions:
+  contents: read
+jobs:
+  deploy-runner:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar ZIP de GitHub Releases (sin reconstruir)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh release download "$VERSION" --repo "$REPO" --pattern "sistema-inventario-$VERSION.zip" --dir .
+      - name: Extraer en entorno de destino temporal
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          mkdir -p despliegue
+          unzip "sistema-inventario-$VERSION.zip" -d despliegue
+          find despliegue -type f
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Ejecutar y verificar programa liberado
+        run: |
+          cd despliegue
+          python -m compileall -q src
+          python src/producto.py
+          python src/busqueda.py
+      - name: Conservar evidencia de despliegue
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidencia-deploy-${{ inputs.version }}
+          path: despliegue/
