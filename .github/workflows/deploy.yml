@@ -1,27 +1,43 @@
 name: DEPLOY - Verificar artefacto liberado
 on:
+  workflow_run:
+    workflows: ["RELEASE - Sistema de Inventario"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       version:
-        description: 'Tag publicado en GitHub Releases (ej. v1.0.0)'
+        description: 'Tag publicado (ej. v1.0.0)'
         required: true
         default: 'v1.0.0'
 permissions:
   contents: read
 jobs:
   deploy-runner:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Descargar ZIP de GitHub Releases (sin reconstruir)
+      - name: Resolver versión publicada
+        id: version
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ inputs.version }}
+          REQUESTED_VERSION: ${{ inputs.version }}
           REPO: ${{ github.repository }}
         run: |
-          gh release download "$VERSION" --repo "$REPO" --pattern "sistema-inventario-$VERSION.zip" --dir .
-      - name: Extraer en entorno de destino temporal
+          if [ -n "$REQUESTED_VERSION" ]; then
+            VERSION="$REQUESTED_VERSION"
+          else
+            VERSION="$(gh release view --repo "$REPO" --json tagName --jq .tagName)"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - name: Descargar ZIP publicado (no reconstruir)
         env:
-          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          REPO: ${{ github.repository }}
+        run: gh release download "$VERSION" --repo "$REPO" --pattern "sistema-inventario-$VERSION.zip" --dir .
+      - name: Extraer paquete en runner temporal
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           mkdir -p despliegue
           unzip "sistema-inventario-$VERSION.zip" -d despliegue
@@ -35,8 +51,8 @@ jobs:
           python -m compileall -q src
           python src/producto.py
           python src/busqueda.py
-      - name: Conservar evidencia de despliegue
+      - name: Guardar evidencia
         uses: actions/upload-artifact@v4
         with:
-          name: evidencia-deploy-${{ inputs.version }}
+          name: evidencia-deploy-${{ steps.version.outputs.version }}
           path: despliegue/
